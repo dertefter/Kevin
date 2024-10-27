@@ -32,15 +32,30 @@
 - Какой заряд батареи
 - ...
 
-### Установка
+### Установка и запуск
 ```
 git clone https://github.com/dertefter/Kevin.git
 cd Kevin
-```
-
-```
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
+
+### Примечание
+Доступ к ИИ моделям осуществляется с помощью gpt4free. </br>
+gpt4free очень не стабилен. Поэтому если вы сталкиваетесь с проблемами - нужно поэкспериментировать с настройками:
+```
+# файл mind.py
+
+response = g4f.ChatCompletion.create(
+                    model="gpt-4o", #можно попробовать gpt-3.5-turbo
+                    messages=self.messages_array,
+                    stream=True
+                )
+```
+### Благодарности
+##### Говорим спасибо этим проектам:
+- [gpt4free (g4f)](https://github.com/xtekky/gpt4free)
+- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/)
+- [QFluentWidgets](https://qfluentwidgets.com/)
