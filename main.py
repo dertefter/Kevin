@@ -84,6 +84,7 @@ class Chat(QWidget):
 
         # Поле ввода текста
         self.text_input = LineEdit(self)
+        self.text_input.returnPressed.connect(self.send_message)
         self.input_layout.addWidget(self.text_input)
 
         # Кнопка отправки

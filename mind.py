@@ -5,10 +5,8 @@ from dataclasses import dataclass
 
 import g4f
 from g4f import Provider
-from g4f.local import LocalClient
 
 import execute
-
 
 pattern_code = r"<python>(.*?)</python>"
 
@@ -119,55 +117,75 @@ class Mind:
     def get_ai_response(self, input_string, card):
         self.titleBar.set_animation(1)
         self.messages_array.append({"role": "user", "content": input_string})
-        self.thread = threading.Thread(target=self.response_thread, args=[card])
+        self.thread = threading.Thread(target=self.response_thread, args=(card, input_string))
         self.thread.start()
 
-    def response_thread(self, card):
-        try:
-            response = g4f.ChatCompletion.create(model="gpt-4o",
-                                                 messages=self.messages_array,
-                                                 stream=True)
-            #response = self.localClient.chat.completions.create(model    = 'orca-mini-3b', messages = [self.messages_array],stream   = True)
-            result = Message()
-            ress = ""
-            for part in response:
-                ress += part
-                result.from_string(ress)
-                card.set_content(result)
+    def response_thread(self, card, input_string):
+        max_retries = 3  # Максимальное количество повторных попыток
+        retry_count = 0
 
-            card.set_content(result)
-            self.messages_array.append({"role": "assistant", "content": ress})
-            code_result = self.code_exec_result(ress)
-            if code_result is not None:
-                result.text = code_result
-                card.set_content(result)
-            else:
-                card.set_content(result)
-            self.titleBar.set_animation(0)
-            print(result)
-            return result
-        except Exception as e:
-            return str(e)
+        while retry_count < max_retries:
+            try:
+                # Ваш код для обращения к модели и обработки ответа
 
-    def code_exec_result(self, input):
+                response = g4f.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=self.messages_array,
+                    stream=True
+                )
+
+                result = Message()
+                ress = ""
+                for part in response:
+                    ress += part
+                    result.from_string(ress)
+                    card.set_content(result)
+
+                # Проверяем, пустой ли ответ
+                if ress.strip() == "":
+                    retry_count += 1
+                    print(f"Пустой ответ получен. Повторная попытка {retry_count} из {max_retries}.")
+                    continue  # Повторяем цикл для повторной попытки
+                else:
+                    self.messages_array.append({"role": "assistant", "content": ress})
+
+                    code_result = self.code_exec_result(ress)
+                    if code_result is not None:
+                        result.text = code_result
+                        card.set_content(result)
+                    else:
+                        card.set_content(result)
+                    break  # Выходим из цикла после успешного ответа
+
+            except Exception as e:
+                retry_count += 1
+                print(f"Ошибка при получении ответа: {e}. Попытка {retry_count} из {max_retries}.")
+                continue  # Повторяем цикл для повторной попытки
+
+        if retry_count == max_retries:
+            print("Не удалось получить ответ от модели после нескольких попыток.")
+            card.set_content(Message(text="Извините, не удалось получить ответ. Попробуйте ещё раз."))
+
+        self.titleBar.set_animation(0)
+
+    def code_exec_result(self, input_str):
         try:
-            if "<python>" in input and "</python>" in input:
-                print("pt1 is ok")
-                match = re.search(pattern_code, input, re.DOTALL)
+            if "<python>" in input_str and "</python>" in input_str:
+                match = re.search(pattern_code, input_str, re.DOTALL)
                 if match:
                     code_inside_tags = match.group(1)
                     code = code_inside_tags
-                    with open("execute.py", "w", encoding='utf-8') as file:
-                        file.write(code)
-                else:
-                    return None
+                    local_vars = {}
+                    exec(code, {}, local_vars)
+                    if 'answer' in local_vars:
+                        result = local_vars['answer']()
+                        return result
+                    else:
+                        return "Ошибка: функция 'answer' не найдена."
             else:
                 return None
-            importlib.reload(execute)
-            result = execute.answer()
-            return result
-        except:
-            return None
+        except Exception as e:
+            return f"Ошибка выполнения кода: {e}"
 
 
 @dataclass
@@ -183,40 +201,3 @@ class Message:
             self.text = s
             return self
 
-'''
-def ai_answer(text):
-    try:
-        if text != "init":
-            messages_array.append({"role": "user", "content": text})
-        
-        result = ""
-        for part in response:
-            result += part
-        if show_pre:
-            print("pre-result:", result)
-        
-        if "<python>" in result and "</python>" in result:
-            match = re.search(pattern_code, result, re.DOTALL)
-            if match:
-                code_inside_tags = match.group(1)
-                code = code_inside_tags
-                with open("execute.py", "w", encoding='utf-8') as file:
-                    file.write(code)
-
-                error_count = 0
-                while error_count <= 2:
-                    try:
-                        importlib.reload(execute)
-                        result = execute.answer()
-                        break
-                    except Exception as e:
-                        print("Error execute:", e)
-                        print(f"Попытка: {error_count} из 3")
-                        error_count += 1
-                        ai_answer("Ошибка выполнения кода: " + str(e) + "\nПопробуй ещё раз, исправив ошибку")
-        print(messages_array)
-
-        return result
-    except Exception as e:
-        return (f"Произошла ошибка:\n{e}")
-        '''
