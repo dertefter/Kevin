@@ -2,7 +2,7 @@ import sys
 
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QEventLoop, Qt
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QMessageBox
+from PyQt6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QMessageBox, QDialog, QPushButton, QScrollArea
 from qfluentwidgets import *
 from qframelesswindow.utils import getSystemAccentColor
 
@@ -55,26 +55,49 @@ class UI(MSFluentWindow):
         self.stackedWidget.setStyleSheet('QWidget{background: transparent}')
         # Подключаем сигнал к слоту
         self.mind.confirmation_needed.connect(self.handle_confirmation_needed)
+        # self.mind.confirmation_result.connect(self.handle_confirmation_result)
 
-    @pyqtSlot(str, object)
-    def handle_confirmation_needed(self, check_response, result_holder):
-        # Создаём диалоговое окно предупреждения
-        msg_box = QMessageBox(self)
-        msg_box.setIcon(QMessageBox.Icon.Warning)
-        msg_box.setWindowTitle("Предупреждение безопасности")
-        msg_box.setText("Код не прошёл проверку безопасности.")
-        msg_box.setInformativeText(f"{check_response}\n\nВы хотите выполнить этот код?")
+    @pyqtSlot(str)
+    def handle_confirmation_needed(self, message):
+        dialog = ConfirmationDialog(message, self)
+        confirmed = dialog.exec() == QDialog.DialogCode.Accepted
+        self.mind.confirmation_result.emit(confirmed)
 
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+class ConfirmationDialog(QDialog):
+    def __init__(self, message, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Предупреждение безопасности")
+        self.setMinimumSize(400, 300)
+        self.resize(600, 400)  # Начальный размер
 
-        # Показываем диалог и получаем ответ
-        ret = msg_box.exec()
+        layout = QVBoxLayout(self)
 
-        if ret == QMessageBox.StandardButton.Yes:
-            result_holder['confirmed'] = True
-        else:
-            result_holder['confirmed'] = False
+        # Создаем прокручиваемую область
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+
+        # Создаем виджет с текстом
+        content = QWidget()
+        scroll_layout = QVBoxLayout(content)
+        label = QLabel(message)
+        label.setWordWrap(True)
+        scroll_layout.addWidget(label)
+        scroll.setWidget(content)
+
+        layout.addWidget(scroll)
+
+        # Кнопки Yes и No
+        button_layout = QHBoxLayout()
+        self.yes_button = QPushButton("Yes")
+        self.no_button = QPushButton("No")
+        button_layout.addStretch()
+        button_layout.addWidget(self.yes_button)
+        button_layout.addWidget(self.no_button)
+        layout.addLayout(button_layout)
+
+        # Подключаем сигналы
+        self.yes_button.clicked.connect(self.accept)
+        self.no_button.clicked.connect(self.reject)
 
 
 class Chat(QWidget):

@@ -63,13 +63,17 @@ def answer():
 
 class Mind(QObject):
     # Сигнал для запроса подтверждения, передаёт строку с сообщением и объект для возврата результата
-    confirmation_needed = pyqtSignal(str, object)
+
+    confirmation_needed = pyqtSignal(str)
+    confirmation_result = pyqtSignal(bool)
 
     def __init__(self, parent_widget=None):
         super().__init__()
         self.init_new_chat()
-        self.parent_widget = parent_widget  # Сохраняем родительский виджет для диалогов
-
+        self.parent_widget = parent_widget
+        self.confirmation_result.connect(self.handle_confirmation_result)
+        self.pending_execution = None  # Хранение информации о том, что нужно выполнить после подтверждения
+    
     def init_new_chat(self):
         self.messages_array = [
             {"role": "user", "content": init_message},
@@ -82,7 +86,7 @@ class Mind(QObject):
         self.thread.start()
 
     def response_thread(self, card, input_string):
-        max_retries = 3  # Максимальное количество повторных попыток
+        max_retries = 5  # Максимальное количество повторных попыток
         retry_count = 0
 
         while retry_count < max_retries:
@@ -157,16 +161,12 @@ class Mind(QObject):
                         # Проверяем, есть ли проблемы только с безопасностью
                         if "безопасность" in check_response.lower():
                             # Спрашиваем пользователя о подтверждении выполнения
-                            loop = QEventLoop()
-                            result_holder = {'confirmed': None}
+                            self.pending_execution = (code, card)
+                            self.confirmation_needed.emit(check_response)
 
-                            def on_confirmation_received(confirmed):
-                                result_holder['confirmed'] = confirmed
-                                loop.quit()
-
-                            # Эмитируем сигнал и подключаем слот
-                            self.confirmation_needed.emit(check_response, result_holder)
+                            '''# Подключаем слот перед эмиссией сигнала
                             self.confirmation_needed.connect(on_confirmation_received, Qt.ConnectionType.DirectConnection)
+                            self.confirmation_needed.emit(check_response, result_holder)
 
                             # Запускаем цикл ожидания
                             loop.exec()
@@ -177,7 +177,7 @@ class Mind(QObject):
                             else:
                                 # Пользователь отказался
                                 card.set_content(Message(text="Операция отменена пользователем."))
-                                return True  # Считаем, что попытка успешна, но код не выполнен
+                                return True  # Считаем, что попытка успешна, но код не выполнен'''
                         else:
                             # Проблемы не только с безопасностью, пытаемся решить проблему
                             clarification = f"Код не прошёл проверку: {check_response}. Попробуй исправить код и решить задачу '{user_input}' ещё раз."
@@ -190,6 +190,15 @@ class Mind(QObject):
             result = f"Ошибка выполнения кода: {e}"
             card.set_content(Message(text=result))
             return True  # Считаем попытку успешной, несмотря на ошибку
+    @pyqtSlot(bool)
+    def handle_confirmation_result(self, confirmed):
+        if self.pending_execution:
+            code, card = self.pending_execution
+            if confirmed:
+                self.execute_code(code, card)
+            else:
+                card.set_content(Message(text="Операция отменена пользователем."))
+            self.pending_execution = None
 
     def execute_code(self, code, card):
         try:
