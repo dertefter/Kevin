@@ -1,8 +1,8 @@
 import sys
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot, QEventLoop, Qt
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
+from PyQt6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QMessageBox
 from qfluentwidgets import *
 from qframelesswindow.utils import getSystemAccentColor
 
@@ -31,7 +31,7 @@ class UI(MSFluentWindow):
         super().__init__(parent)
         cfg = AppConfig()
         qconfig.load('config/config.json', cfg)
-        self.mind = Mind()
+        self.mind = Mind(parent_widget=self)
         self.tb = TitleBar(self)
         self.setTitleBar(self.tb)
         self.mind.titleBar = self.tb
@@ -53,6 +53,28 @@ class UI(MSFluentWindow):
         self.addSubInterface(settings, FluentIcon.SETTING, 'Настройки')
 
         self.stackedWidget.setStyleSheet('QWidget{background: transparent}')
+        # Подключаем сигнал к слоту
+        self.mind.confirmation_needed.connect(self.handle_confirmation_needed)
+
+    @pyqtSlot(str, object)
+    def handle_confirmation_needed(self, check_response, result_holder):
+        # Создаём диалоговое окно предупреждения
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+        msg_box.setWindowTitle("Предупреждение безопасности")
+        msg_box.setText("Код не прошёл проверку безопасности.")
+        msg_box.setInformativeText(f"{check_response}\n\nВы хотите выполнить этот код?")
+
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+
+        # Показываем диалог и получаем ответ
+        ret = msg_box.exec()
+
+        if ret == QMessageBox.StandardButton.Yes:
+            result_holder['confirmed'] = True
+        else:
+            result_holder['confirmed'] = False
 
 
 class Chat(QWidget):
