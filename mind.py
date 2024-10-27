@@ -129,7 +129,7 @@ class Mind:
                 # Ваш код для обращения к модели и обработки ответа
 
                 response = g4f.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o",
                     messages=self.messages_array,
                     stream=True
                 )
