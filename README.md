@@ -39,7 +39,7 @@ cd Kevin
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt -c constraints.txt
-python main.py
+python kevin\main.py
 ```
 
 ### Примечание
