@@ -38,7 +38,7 @@ git clone https://github.com/dertefter/Kevin.git
 cd Kevin
 python -m venv venv
 venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 python main.py
 ```
 
